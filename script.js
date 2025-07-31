@@ -1,3 +1,14 @@
+let dataLoaded = false;
+
+
+function tryShow() {
+  if (dataLoaded) {
+    document.body.classList.remove('loading');
+    document.body.classList.add('loaded');
+  }
+}
+
+
 //Fetching data
 const educationUrl = 'https://cdn.freecodecamp.org/testable-projects-fcc/data/choropleth_map/for_user_education.json';
 const countyUrl = 'https://cdn.freecodecamp.org/testable-projects-fcc/data/choropleth_map/counties.json';
@@ -10,8 +21,8 @@ Promise.all([
   const [educationData, countyData] = data;
 
 // Define the dimensions
-const w = window.innerWidth * 0.8;
-const h = window.innerHeight * 0.8;
+const w = 1200;
+const h = 600;
 const padding = 90;
 
 const edData = d => educationData.find(el => el.fips == d.id)
@@ -28,9 +39,13 @@ const counties = topojson.feature(countyData, countyData.objects.counties).featu
 const path = d3.geoPath()
 
 // Create SVG container
-const svg = d3.select("svg")
-       .attr("width", w)
-       .attr("height", h)
+const svg = d3.select(".container")
+       .append("svg")
+       .attr("viewBox", `0 0 ${w} ${h}`) // <- makes it scalable
+       .attr("preserveAspectRatio", "xMidYMid meet") // <- keeps it centered
+       .style("width", "100%")
+       .style("height", "auto")
+       .attr("id", "svg");
 
 svg.selectAll('path')
        .data(counties)
@@ -44,19 +59,32 @@ svg.selectAll('path')
        .attr('d', path)
        .on("mouseover", function(event, d) {
               const dataEducation = this.getAttribute('data-education')
-              d3.select("#tooltip")
+              const tooltip = d3.select("#tooltip");
+              tooltip
                   .style("opacity", 1)
                   .style("z-index", 0)
                   .attr('data-education', dataEducation)
                   .html(`${edData(d).area_name}, ${edData(d).state}: ${edData(d).bachelorsOrHigher}%`)
-                  .style("left", `${event.pageX}px`)
-                  .style("top", `${event.pageY}px`)
-          })
+
+              const tooltipWidth = tooltip.node().offsetWidth;
+              let left = event.pageX + 15;
+              let top = event.pageY - 40;
+
+              if (left + tooltipWidth > window.innerWidth) {
+                     left = event.pageX - tooltipWidth - 15;
+              }
+
+              tooltip
+              .style("left", `${left}px`)
+              .style("top", `${top}px`); 
+       })
        .on("mouseout", function() {
-       d3.select("#tooltip")
+              d3.select("#tooltip")
               .style("opacity", 0)
               .style("z-index", -1)
        });
+
+
 
 
 // Create legend scale
@@ -86,9 +114,35 @@ legend.selectAll("rect")
        .attr('width', rectSize)
        .attr('height', rectSize)
        .attr('fill', d => colorScale(d))
+
+const source = d3.select(".container")
+  .append("div")
+  .attr("id", "source")
+  .style("text-align", "right")
+  .style("margin-right", `${padding}px`)
+
+source.append("span").text("Source: ");
+
+source.append("a")
+  .attr("href", "https://www.ers.usda.gov/data-products/county-level-data-sets/county-level-data-sets-download-data")
+  .attr("target", "_blank")
+  .text("USDA Economic Research Service");
+  
+dataLoaded = true;
+tryShow();
+
 })
 
 
 .catch(error => console.log('Error:', error));
 
 const formatPercent = value =>  `${value}%`
+
+function setViewportHeight() {
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+
+window.addEventListener('resize', setViewportHeight);
+window.addEventListener('orientationchange', setViewportHeight);
+setViewportHeight();
